@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Dataset and generated artefacts are large/regeneratable — not committed.
+data/*
+!data/.gitkeep
+outputs/models/*
+outputs/figures/*
+outputs/logs/*
+!outputs/models/.gitkeep
+!outputs/figures/.gitkeep
+!outputs/logs/.gitkeep
+
+.DS_Store

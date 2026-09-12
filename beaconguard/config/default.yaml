@@ -1,0 +1,127 @@
+# BeaconGuard Phase 1 — single source of truth for every threshold and
+# hyperparameter (NFR-8: no hardcoded magic numbers in code).
+
+seed: 42
+
+data:
+  # engraqeel/iot23preprocesseddata, copied into the project's data/ folder
+  # (git-ignored — see .gitignore) from the kagglehub cache. This variant
+  # DOES retain ts/uid/id.orig_h/id.resp_h — verified against the actual
+  # file (see run.md §4). Re-copy from kagglehub's cache if this file is
+  # missing; `python3 -c "import kagglehub; print(kagglehub.dataset_download('engraqeel/iot23preprocesseddata'))"`
+  # prints the current cache path.
+  raw_paths:
+    - "data/iot23_combined_new.csv"
+  required_columns: ["ts", "uid", "id.orig_h", "id.orig_p", "id.resp_h", "id.resp_p"]
+  null_token: "-"                     # Zeek's null convention
+  working_sample_size: null           # null = use full loaded data; int = stratified subsample (fast dev iteration; see FR-1.6 note in src/pipeline.py)
+  positive_labels:
+    - "C&C"
+    - "C&C-HeartBeat"
+    - "C&C-FileDownload"
+    - "C&C-HeartBeat-FileDownload"
+    - "C&C-Torii"
+    - "C&C-Mirai"
+  negative_labels:
+    - "Benign"
+  excluded_labels:
+    - "DDoS"
+    - "Okiru"
+    - "Okiru-Attack"                   # present in the Kaggle iot23preprocesseddata variant; not in prd.md's original list
+    - "Attack"
+    - "PartOfAHorizontalPortScan"
+    - "FileDownload"
+  rare_class_min_count: 50            # below this, fold into "other-C&C" (§4.5)
+
+sessionize:
+  group_keys: ["id.orig_h", "id.resp_h", "id.resp_p"]
+  min_session_flows: 4                # FR-2.1.4; R-2 fallback is 3
+
+features:
+  # Every feature module tags output columns with a visibility tier so
+  # ablation (FR-8.8) can select subsets. Tiers: 1=timing, 2=volume,
+  # 3=tls (stub only, Phase 2), 4=context.
+  common_service_ports: [20, 21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 993, 995, 3389, 8080, 8443]
+  ephemeral_port_floor: 49152
+  # Names must match the aggregated Tier-2 output columns from
+  # features/volume.py (session-level sums), not the raw per-flow Zeek
+  # column names — see src/pipeline.py::build_feature_matrix.
+  log_transform_columns: ["orig_bytes", "resp_bytes", "total_bytes"]
+
+imbalance:
+  strategy: "class_weight"            # one of: class_weight, smote, focal_loss
+  compare_strategies: ["class_weight", "smote"]
+  smote_k_neighbors: 5
+
+models:
+  random_forest:
+    n_estimators: [200, 400, 800]
+    max_depth: [8, 16, null]
+    min_samples_leaf: [1, 4, 8]
+  xgboost:
+    n_estimators: [200, 400]
+    max_depth: [4, 6, 8]
+    learning_rate: [0.05, 0.1, 0.2]
+  logistic_regression:
+    C: [0.01, 0.1, 1.0, 10.0]
+  cv_folds: 5
+  cv_scoring: "average_precision"     # PR-AUC, per FR-3.5 — never accuracy
+  calibration_method: "isotonic"      # or "sigmoid" (Platt)
+
+anomaly:
+  autoencoder:
+    hidden_dims: [32, 16, 8, 16, 32]
+    dropout: 0.1
+    learning_rate: 0.001
+    batch_size: 256
+    epochs: 100
+    early_stopping_patience: 10
+  threshold_percentile: 95            # set from benign reconstruction-error distribution, FR-4.3
+  baselines: ["isolation_forest", "one_class_svm"]
+
+fusion:
+  method: "weighted_average"          # or "max_score"
+  supervised_weight: 0.6
+  anomaly_weight: 0.4
+
+decision:
+  # These two together set tau_high via alert_fraction = alerts_per_day_budget
+  # / assumed_daily_flow_volume (decision.calibrate_thresholds). They should
+  # reflect the scale of network you're actually deploying/evaluating on —
+  # PRD OQ-4 leaves this an open, deployment-specific question, not a
+  # universal constant. The original default (50 / 1,000,000, i.e. a
+  # 0.005% alert rate) was written for enterprise-scale production traffic;
+  # applied to this project's ~370-session IoT-23 evaluation set it pushed
+  # tau_high to the very top of the score distribution — e.g. 0.926 against
+  # real test-set scores of 0.605/0.758/0.901 for true positives — so almost
+  # nothing ever crossed it and precision/recall at the operating threshold
+  # read as 0/0 even though PR-AUC (threshold-independent) showed the model
+  # was discriminating fine. 1,000 flows/day matches a small IoT deployment
+  # (this dataset's own scale: a handful of devices) far better; adjust
+  # upward for a larger deployment or a production run against more data.
+  alerts_per_day_budget: 50
+  assumed_daily_flow_volume: 1000
+  # tau_low / tau_high are derived at runtime from the budget above and
+  # persisted here as the last-computed values for reproducibility.
+  tau_low: null
+  tau_high: null
+
+adversarial:
+  jitter_percentages: [0, 10, 20, 30, 40, 50]
+  padding_factors: [1.0, 1.25, 1.5, 2.0]
+
+evaluation:
+  split_ratios: [0.70, 0.15, 0.15]
+  temporal_split_column: "ts"
+  held_out_family_test_fraction: 0.3
+  ablation_tiers:
+    - ["tier1"]
+    - ["tier1", "tier2"]
+    - ["tier1", "tier2", "tier4"]
+  primary_metric: "pr_auc"
+
+paths:
+  outputs_dir: "outputs"
+  models_dir: "outputs/models"
+  figures_dir: "outputs/figures"
+  logs_dir: "outputs/logs"
