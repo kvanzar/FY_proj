@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.decision import calibrate_thresholds, decide
+from beacon_detection.decision import calibrate_thresholds, decide
 
 
 def test_calibrate_thresholds_respects_alert_budget():

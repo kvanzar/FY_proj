@@ -1,5 +1,5 @@
-from src.features import volume
-from src.sessionize import sessionize
+from beacon_detection.features import volume
+from beacon_detection.sessionize import sessionize
 
 
 def test_heartbeat_session_has_resp_bytes_is_zero_flag(synthetic_flows):

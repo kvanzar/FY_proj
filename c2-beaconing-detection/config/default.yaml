@@ -1,4 +1,4 @@
-# BeaconGuard Phase 1 — single source of truth for every threshold and
+# Phase 1 configuration — single source of truth for every threshold and
 # hyperparameter (NFR-8: no hardcoded magic numbers in code).
 
 seed: 42

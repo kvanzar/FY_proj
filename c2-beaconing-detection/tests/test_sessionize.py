@@ -1,4 +1,4 @@
-from src.sessionize import sessionize
+from beacon_detection.sessionize import sessionize
 
 
 def test_sessionize_groups_by_host_pair_and_port(synthetic_flows):

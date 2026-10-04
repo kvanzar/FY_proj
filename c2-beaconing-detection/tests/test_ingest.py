@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.ingest import (
+from beacon_detection.ingest import (
     SchemaValidationError,
     build_binary_target,
     coerce_numeric,

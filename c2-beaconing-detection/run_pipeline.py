@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """FR-8.9 — single-command entry point that reproducibly runs the full
-BeaconGuard Phase 1 pipeline end to end: ingest -> sessionize -> features
--> supervised + anomaly branches -> fusion -> decision simulation ->
+Phase 1 C2 beaconing detection pipeline end to end: ingest -> sessionize ->
+features -> supervised + anomaly branches -> fusion -> decision simulation ->
 explanation -> adversarial sweep -> evaluation report.
 
 Usage:
@@ -18,10 +18,10 @@ from typing import Any
 
 import pandas as pd
 
-from src.adversarial import jitter_sweep
-from src.config import get_logger, load_config
-from src.decision import build_decision_log, calibrate_thresholds, decide, save_decision_log, save_thresholds
-from src.evaluate import (
+from beacon_detection.adversarial import jitter_sweep
+from beacon_detection.config import get_logger, load_config
+from beacon_detection.decision import build_decision_log, calibrate_thresholds, decide, save_decision_log, save_thresholds
+from beacon_detection.evaluate import (
     compute_confusion_matrix,
     compute_metrics,
     false_positives_per_day,
@@ -31,13 +31,13 @@ from src.evaluate import (
     save_report,
     temporal_split,
 )
-from src.explain import compute_global_importance, render_local_explanation
-from src.features import connstate
-from src.models import anomaly as anomaly_model
-from src.models import fusion as fusion_model
-from src.models import supervised as supervised_model
-from src.pipeline import build_feature_matrix, load_and_prepare, select_tiers
-from src.sessionize import build_session_id
+from beacon_detection.explain import compute_global_importance, render_local_explanation
+from beacon_detection.features import connstate
+from beacon_detection.models import anomaly as anomaly_model
+from beacon_detection.models import fusion as fusion_model
+from beacon_detection.models import supervised as supervised_model
+from beacon_detection.pipeline import build_feature_matrix, load_and_prepare, select_tiers
+from beacon_detection.sessionize import build_session_id
 
 logger = get_logger("run_pipeline")
 

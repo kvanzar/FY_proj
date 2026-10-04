@@ -1,5 +1,5 @@
-from src.features import timing
-from src.sessionize import sessionize
+from beacon_detection.features import timing
+from beacon_detection.sessionize import sessionize
 
 
 def test_perfectly_regular_beacon_has_low_iat_cv(synthetic_flows):
